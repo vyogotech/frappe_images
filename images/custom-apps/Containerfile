@@ -35,10 +35,9 @@ RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
 # Create a dummy common_site_config.json for build to succeed
 # Some apps (like HRMS) require this file to exist during build for socket.io port
 RUN mkdir -p sites && \
-    echo '{"socketio_port": 9000}' > sites/common_site_config.json
+    echo '{"socketio_port": 9000}' > sites/common_site_config.json && \
+    bench build
 
-# Build assets for the new apps
-RUN bench build
 
 # --- Stage 2: Final Image (Runtime) ---
 FROM ghcr.io/vyogotech/frappe_base:latest
