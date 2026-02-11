@@ -1,147 +1,57 @@
-ARG PYTHON_VERSION=3.11.6
-ARG DEBIAN_BASE=bookworm
-ARG TARGETARCH
+FROM frappe/erpnext:version-15
 
-# --- Stage 1: Runtime Base (Minimal) ---
-FROM python:${PYTHON_VERSION}-slim-${DEBIAN_BASE} AS base
+# Switch to root to perform system changes
+USER root
 
-# Disable 'uv' for Docker builds globally. It often crashes with
-# Illegal Instruction (exit 167) during emulated ARM64 builds in QEMU.
-ENV BENCH_USE_UV=0
-ENV INSTALL_USE_UV=0
-
-ARG WKHTMLTOPDF_VERSION=0.12.6.1-3
-ARG WKHTMLTOPDF_DISTRO=bookworm
-
-# OCP FIX: Use group 0 and numeric UID 1001
-RUN useradd -u 1001 -ms /bin/bash -g 0 frappe && \
-    apt-get update && \
+# 1. OpenShift Compatibility:
+# - Install 'wait-for-it' for orchestrating startup
+# - Install 'nginx' and 'gettext-base' (for envsubst) as these are needed for frontend mode
+# - Fix permissions for arbitrary UIDs (Group 0)
+RUN apt-get update && \
     apt-get install --no-install-recommends -y \
-    # Runtime Shared Libraries
-    git nginx gettext-base file \
-    libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libpangocairo-1.0-0 \
-    restic gpg mariadb-client less libpq-dev postgresql-client \
-    wait-for-it jq media-types curl ca-certificates && \
-    # Install Node.js 20 (Needed for Socket.IO runtime)
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    # Download and install wkhtmltopdf (Runtime needed for PDF generation)
-    if [ "${TARGETARCH}" = "arm64" ]; then export ARCH=arm64; \
-    elif [ "${TARGETARCH}" = "amd64" ]; then export ARCH=amd64; \
-    else export ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'); fi && \
-    downloaded_file=wkhtmltox_${WKHTMLTOPDF_VERSION}.${WKHTMLTOPDF_DISTRO}_${ARCH}.deb && \
-    curl -sLO https://github.com/wkhtmltopdf/packaging/releases/download/$WKHTMLTOPDF_VERSION/$downloaded_file && \
-    apt-get install -m -y ./$downloaded_file && \
-    # Clean up immediately
-    rm $downloaded_file && \
+    wait-for-it \
+    nginx \
+    gettext-base && \
     rm -rf /var/lib/apt/lists/* && \
-    # System path for bench and fallback venv tools
-    # Pinning frappe-bench to 5.22.6 and click to 8.0.4 to ensure compatibility
-    pip3 install --no-cache-dir frappe-bench==5.22.6 click==8.0.4 virtualenv && \
-    # Purge uv if it was pulled as a dependency
-    pip3 uninstall -y uv && \
-    rm -rf /usr/local/bin/uv /usr/bin/uv && \
     # Nginx config for non-root
     rm -fr /etc/nginx/sites-enabled/default && \
     sed -i '/user www-data/d' /etc/nginx/nginx.conf && \
     sed -i 's/listen 80 default_server/listen 8080 default_server/' /etc/nginx/sites-available/default || true && \
     ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log && \
     touch /run/nginx.pid && \
-    chown -R 1001:0 /etc/nginx /var/log/nginx /var/lib/nginx /run && \
+    chown -R frappe:root /etc/nginx /var/log/nginx /var/lib/nginx /run && \
     chmod -R g=u /etc/nginx /var/log/nginx /var/lib/nginx /run
 
-# --- Stage 2: Heavyweight Builder (Build tools) ---
-FROM base AS builder-base
-
-ARG NODE_VERSION=20.19.2
-ENV NVM_DIR=/home/frappe/.nvm
-ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/:${PATH}
-
-USER root
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
-    # Build Tools & Languages
-    git build-essential wget rlwrap \
-    # Python & Compilation headers
-    python3-dev python3-venv libssl-dev \
-    libffi-dev liblcms2-dev libldap2-dev libmariadb-dev libsasl2-dev \
-    libtiff5-dev libwebp-dev pkg-config tk8.6-dev libbz2-dev \
-    # Redis for tests
-    redis-tools && \
-    rm -rf /var/lib/apt/lists/*
-
-USER 1001
-RUN mkdir -p ${NVM_DIR} && \
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash && \
-    . ${NVM_DIR}/nvm.sh && \
-    nvm install ${NODE_VERSION} && \
-    nvm use v${NODE_VERSION} && \
-    npm install -g yarn && \
-    rm -rf ${NVM_DIR}/.cache
-
-USER root
-COPY resources/get_apps.py /usr/local/bin/get_apps
-COPY resources/build_bench.sh /usr/local/bin/build_bench
-RUN chmod +x /usr/local/bin/get_apps /usr/local/bin/build_bench
-USER 1001
-
-# --- Stage 3: The Build Process ---
-FROM builder-base AS builder
-
-ARG FRAPPE_BRANCH=version-15
-ARG FRAPPE_PATH=https://github.com/frappe/frappe
-ARG ERPNEXT_REPO=https://github.com/frappe/erpnext
-ARG ERPNEXT_BRANCH=version-15
-ARG APPS=""
-ARG GITHUB_ORG=""
-ARG GH_BUILD_KEY=""
-
-WORKDIR /home/frappe
-
-# One-Shot Build Process (Clean, Init, Fetch, Build, Clean)
-RUN build_bench
-
-WORKDIR /home/frappe/frappe-bench
-
-# --- Stage 4: Final Production Image ---
-FROM base AS erpnext
-
-USER 1001
-WORKDIR /home/frappe/frappe-bench
-
-# Copy the pre-built bench from builder
-COPY --from=builder --chown=1001:0 /home/frappe/frappe-bench /home/frappe/frappe-bench
-
-# Resources and Entrypoint
-USER root
-RUN mv sites/assets /home/frappe/assets_cache && \
-    mkdir -p sites/assets logs && \
-    chmod -R g=u /home/frappe/frappe-bench /home/frappe/assets_cache && \
-    chmod g=u /etc/passwd
-
+# 2. Copy Helper Scripts
+# We need our custom entrypoints for proper initialization
 COPY resources/nginx-template.conf /templates/nginx/frappe.conf.template
 COPY resources/nginx-entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
 COPY resources/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/nginx-entrypoint.sh /usr/local/bin/entrypoint.sh
 
-USER 1001
+# 3. Permission Fixes
+# OpenShift runs as random UID but GID 0.
+# We must ensure GID 0 can write to these directories.
+RUN chmod +x /usr/local/bin/nginx-entrypoint.sh /usr/local/bin/entrypoint.sh && \
+    # Move assets to cache and create symlink target if they exist (base image might have them)
+    # The base image has sites/assets. We want to move them to assets_cache.
+    # Check if sites/assets exists before moving
+    if [ -d "/home/frappe/frappe-bench/sites/assets" ]; then \
+        mkdir -p /home/frappe/assets_cache; \
+        mv /home/frappe/frappe-bench/sites/assets/* /home/frappe/assets_cache/ || true; \
+        rm -rf /home/frappe/frappe-bench/sites/assets; \
+    fi && \
+    mkdir -p /home/frappe/frappe-bench/sites/assets && \
+    mkdir -p /home/frappe/assets_cache && \
+    # recursive chown/chmod for the frappe-bench directory
+    chown -R frappe:root /home/frappe/frappe-bench /home/frappe/assets_cache && \
+    chmod -R g=u /home/frappe/frappe-bench /home/frappe/assets_cache && \
+    # Allow writing to /etc/passwd for the entrypoint user mapping trick
+    chmod g=u /etc/passwd
+
+# Switch back to frappe user (1000)
+# OpenShift will override this UID, but we leave it as default for local docker
+USER 1000
+
+# Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-VOLUME [ \
-  "/home/frappe/frappe-bench/sites", \
-  "/home/frappe/frappe-bench/sites/assets", \
-  "/home/frappe/frappe-bench/logs" \
-]
-
-CMD [ \
-  "/home/frappe/frappe-bench/env/bin/gunicorn", \
-  "--chdir=/home/frappe/frappe-bench/sites", \
-  "--bind=0.0.0.0:8000", \
-  "--threads=4", \
-  "--workers=2", \
-  "--worker-class=gthread", \
-  "--worker-tmp-dir=/dev/shm", \
-  "--timeout=120", \
-  "--preload", \
-  "frappe.app:application" \
-]
+CMD ["/home/frappe/frappe-bench/env/bin/gunicorn", "--chdir=/home/frappe/frappe-bench/sites", "--bind=0.0.0.0:8000", "--threads=4", "--workers=2", "--worker-class=gthread", "--worker-tmp-dir=/dev/shm", "--timeout=120", "--preload", "frappe.app:application"]

@@ -61,8 +61,3 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          pull: true
-          build-args: |
-            GITHUB_ORG=
-            GH_BUILD_KEY=${{ secrets.GITHUB_TOKEN }}
-            APPS=erpnext
