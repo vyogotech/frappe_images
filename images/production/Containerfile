@@ -1,4 +1,4 @@
-FROM frappe/erpnext:version-15
+FROM frappe/erpnext:version-15 AS erpnext
 
 # Switch to root to perform system changes
 USER root
@@ -7,12 +7,7 @@ USER root
 # - Install 'wait-for-it' for orchestrating startup
 # - Install 'nginx' and 'gettext-base' (for envsubst) as these are needed for frontend mode
 # - Fix permissions for arbitrary UIDs (Group 0)
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y \
-    wait-for-it \
-    nginx \
-    gettext-base && \
-    rm -rf /var/lib/apt/lists/* && \
+RUN \
     # Nginx config for non-root
     rm -fr /etc/nginx/sites-enabled/default && \
     sed -i '/user www-data/d' /etc/nginx/nginx.conf && \
