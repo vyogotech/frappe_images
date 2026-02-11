@@ -51,5 +51,3 @@ WORKDIR /home/frappe/frappe-bench
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/apps /home/frappe/frappe-bench/apps
 
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
-
-
