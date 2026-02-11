@@ -1,0 +1,56 @@
+# This Containerfile demonstrates how to add custom apps to your existing Frappe base image.
+# We use a multi-stage build to keep the final image small.
+
+# --- Stage 1: Builder (Installs tools and apps) ---
+FROM ghcr.io/vyogotech/frappe_base:latest AS builder
+
+USER root
+
+# Install build dependencies required for Python packages and basic tools
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    git \
+    build-essential \
+    python3-dev \
+    libffi-dev \
+    libmariadb-dev \
+    jq \
+    # Install Yarn (required for building assets)
+    # We first install npm (via nodejs which is already in base or added here)
+    # The base image has Node.js 20 installed.
+    && npm install -g yarn \
+    && rm -rf /var/lib/apt/lists/*
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+
+# ARG for apps.json - passed as base64 encoded string
+ARG APPS_JSON_BASE64
+
+# Install apps from apps.json if provided
+RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
+    echo "${APPS_JSON_BASE64}" | base64 -d > apps.json && \
+    cat apps.json | jq -r 'to_entries[] | .value.url + (if .value.branch then " --branch " + .value.branch else "" end)' > apps_list.txt && \
+    while read app_args; do \
+      bench get-app $app_args; \
+    done < apps_list.txt; \
+  fi
+
+# Build assets for the new apps
+RUN bench build
+
+# --- Stage 2: Final Image (Runtime) ---
+FROM ghcr.io/vyogotech/frappe_base:latest
+
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+
+# Copy the apps code
+COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/apps /home/frappe/frappe-bench/apps
+
+# Copy the compiled assets to assets_cache
+# The operator will sync these to the sites/assets PVC on startup
+COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
+
+# Update the apps.txt so the bench knows which apps are installed
+# apps.txt is mounted on the volume, so copying it here won't persist it effectively
+# The operator or init script typically handles apps.txt generation based on the apps folder
+# COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/apps.txt /home/frappe/frappe-bench/sites/apps.txt
