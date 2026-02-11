@@ -30,7 +30,7 @@ RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
     echo "${APPS_JSON_BASE64}" | base64 -d > apps.json && \
     cat apps.json | jq -r 'to_entries[] | .value.url + (if .value.branch then " --branch " + .value.branch else "" end)' > apps_list.txt && \
     while read app_args; do \
-      bench get-app "$app_args"; \
+      eval "bench get-app $app_args"; \
     done < apps_list.txt; \
   fi
 
