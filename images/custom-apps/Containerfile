@@ -33,7 +33,7 @@ RUN mkdir -p sites && \
 # Install apps from apps.json if provided
 RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
     echo "${APPS_JSON_BASE64}" | base64 -d > apps.json && \
-    cat apps.json | jq -r 'to_entries[] | .value.url + (if .value.branch then " --branch " + .value.branch else "" end)' > apps_list.txt && \
+    cat apps.json | jq -r 'to_entries[] | .value.url + (if .value.branch and .value.branch != "" then " --branch " + .value.branch else "" end)' > apps_list.txt && \
     while read app_args; do \
       eval "bench get-app $app_args"; \
     done < apps_list.txt; \
