@@ -52,3 +52,4 @@ COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/apps /home/f
 
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
 
+
