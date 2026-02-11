@@ -12,8 +12,8 @@ export PYTHON_PATH="./env/bin/python"
 
 # Ensure we are NOT using uv
 if command -v uv >/dev/null 2>&1; then
-    echo "WARNING: uv found in PATH, attempting to hide it..."
-    # We don't want to fail if it's there but ignored, but we want to know
+  echo "WARNING: uv found in PATH, attempting to hide it..."
+  # We don't want to fail if it's there but ignored, but we want to know
 fi
 
 BENCH_DIR="/home/frappe/frappe-bench"
@@ -30,13 +30,13 @@ rm -rf "$BENCH_DIR"
 # 3. Initialize Bench
 echo "Starting bench init..."
 bench init \
-    --frappe-branch="${FRAPPE_BRANCH:-version-15}" \
-    --frappe-path="${FRAPPE_PATH:-https://github.com/frappe/frappe}" \
-    --no-procfile \
-    --no-backups \
-    --skip-redis-config-generation \
-    --verbose \
-    "$BENCH_DIR"
+  --frappe-branch="${FRAPPE_BRANCH:-version-15}" \
+  --frappe-path="${FRAPPE_PATH:-https://github.com/frappe/frappe}" \
+  --no-procfile \
+  --no-backups \
+  --skip-redis-config-generation \
+  --verbose \
+  "$BENCH_DIR"
 
 # 4. Enter bench directory and FORCE-DISABLE UV
 cd "$BENCH_DIR"
@@ -51,28 +51,28 @@ export GITHUB_TOKEN="${GH_BUILD_KEY}"
 APPS_LIST=$(get_apps --org "${GITHUB_ORG}" --apps "${APPS} ${ERPNEXT_REPO}")
 
 if [ -n "$APPS_LIST" ]; then
-    echo "Identified unique apps to install: $APPS_LIST"
-    for app_item in $APPS_LIST; do
-        if [[ "$app_item" == *"#"* ]]; then
-            app_name="${app_item%%#*}"
-            app_url="${app_item##*#}"
-            echo "Installing app $app_name from $app_url"
-            # Use safer [name] [url] format
-            bench get-app --resolve-deps --branch "${FRAPPE_BRANCH:-version-15}" "$app_name" "$app_url"
-        else
-            app_name="$app_item"
-            echo "Installing app $app_name"
-            bench get-app --resolve-deps --branch "${FRAPPE_BRANCH:-version-15}" "$app_name"
-        fi
+  echo "Identified unique apps to install: $APPS_LIST"
+  for app_item in $APPS_LIST; do
+    if [[ "$app_item" == *"#"* ]]; then
+      app_name="${app_item%%#*}"
+      app_url="${app_item##*#}"
+      echo "Installing app $app_name from $app_url"
+      # Use safer [name] [url] format
+      bench get-app --resolve-deps --branch "${FRAPPE_BRANCH:-version-15}" "$app_name" "$app_url"
+    else
+      app_name="$app_item"
+      echo "Installing app $app_name"
+      bench get-app --resolve-deps --branch "${FRAPPE_BRANCH:-version-15}" "$app_name"
+    fi
 
-        # LOGGING: Verify checkout branch
-        if [ -d "apps/$app_name" ]; then
-            echo "Branch verification for $app_name:"
-            git -C "apps/$app_name" branch
-        fi
-    done
+    # LOGGING: Verify checkout branch
+    if [ -d "apps/$app_name" ]; then
+      echo "Branch verification for $app_name:"
+      git -C "apps/$app_name" branch
+    fi
+  done
 else
-    echo "No custom apps to install."
+  echo "No custom apps to install."
 fi
 
 # 6. Build Assets
