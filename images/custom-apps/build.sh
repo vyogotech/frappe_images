@@ -7,8 +7,8 @@ TAG="latest"
 
 # Check if apps.json exists
 if [ ! -f "apps.json" ]; then
-    echo "Error: apps.json not found in the current directory."
-    exit 1
+  echo "Error: apps.json not found in the current directory."
+  exit 1
 fi
 
 # Encode apps.json to base64
@@ -17,12 +17,12 @@ APPS_JSON_BASE64=$(base64 < apps.json)
 
 # Detect container runtime (podman or docker)
 if command -v podman &> /dev/null; then
-    RUNTIME="podman"
+  RUNTIME="podman"
 elif command -v docker &> /dev/null; then
-    RUNTIME="docker"
+  RUNTIME="docker"
 else
-    echo "Error: Neither podman nor docker found."
-    exit 1
+  echo "Error: Neither podman nor docker found."
+  exit 1
 fi
 
 echo "Building image using $RUNTIME..."
