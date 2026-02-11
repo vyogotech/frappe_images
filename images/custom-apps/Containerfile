@@ -1,5 +1,3 @@
-# This Containerfile demonstrates how to add custom apps to your existing Frappe base image.
-# We use a multi-stage build to keep the final image small.
 
 # --- Stage 1: Builder (Installs tools and apps) ---
 FROM ghcr.io/vyogotech/frappe_base:latest AS builder
@@ -34,6 +32,11 @@ RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
     done < apps_list.txt; \
   fi
 
+# Create a dummy common_site_config.json for build to succeed
+# Some apps (like HRMS) require this file to exist during build for socket.io port
+RUN mkdir -p sites && \
+    echo '{"socketio_port": 9000}' > sites/common_site_config.json
+
 # Build assets for the new apps
 RUN bench build
 
@@ -43,14 +46,8 @@ FROM ghcr.io/vyogotech/frappe_base:latest
 USER frappe
 WORKDIR /home/frappe/frappe-bench
 
-# Copy the apps code
+
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/apps /home/frappe/frappe-bench/apps
 
-# Copy the compiled assets to assets_cache
-# The operator will sync these to the sites/assets PVC on startup
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
 
-# Update the apps.txt so the bench knows which apps are installed
-# apps.txt is mounted on the volume, so copying it here won't persist it effectively
-# The operator or init script typically handles apps.txt generation based on the apps folder
-# COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/apps.txt /home/frappe/frappe-bench/sites/apps.txt
