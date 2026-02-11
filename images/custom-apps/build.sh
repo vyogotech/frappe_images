@@ -13,7 +13,7 @@ fi
 
 # Encode apps.json to base64
 echo "Encoding apps.json..."
-APPS_JSON_BASE64=$(cat apps.json | base64)
+APPS_JSON_BASE64=$(base64 < apps.json)
 
 # Detect container runtime (podman or docker)
 if command -v podman &> /dev/null; then

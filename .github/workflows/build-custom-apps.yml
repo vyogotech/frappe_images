@@ -53,7 +53,7 @@ jobs:
         run: |
           if [ -f "images/custom-apps/apps.json" ]; then
             # Use -w 0 to disable line wrapping in base64 output
-            content=$(cat images/custom-apps/apps.json | base64 -w 0)
+            content=$(base64 -w 0 < images/custom-apps/apps.json)
             echo "APPS_JSON_BASE64=$content" >> $GITHUB_ENV
           else
             echo "::warning::images/custom-apps/apps.json not found"
