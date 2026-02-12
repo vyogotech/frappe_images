@@ -34,7 +34,7 @@ FROM frappe/base:${FRAPPE_BRANCH} AS backend
 
 USER 1000
 
-COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench /home/frappe/frappe-bench
+COPY --from=builder --chown=1000:0 /home/frappe/frappe-bench /home/frappe/frappe-bench
 
 WORKDIR /home/frappe/frappe-bench
 
