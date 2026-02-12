@@ -50,6 +50,17 @@ USER frappe
 WORKDIR /home/frappe/frappe-bench
 
 
+
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/apps /home/frappe/frappe-bench/apps
 
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
+
+# --- Register Apps in Python Environment ---
+# The copied apps/ directory contains valid python packages. We must install them.
+USER frappe
+RUN for app_dir in apps/*; do \
+    if [ -d "$app_dir" ] && [ -f "$app_dir/setup.py" ] || [ -f "$app_dir/pyproject.toml" ]; then \
+        echo "Installing $app_dir in editable mode..."; \
+        pip3 install -e "$app_dir"; \
+    fi \
+done
