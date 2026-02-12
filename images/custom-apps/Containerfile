@@ -61,10 +61,15 @@ USER frappe
 RUN for app_dir in apps/*; do \
     if [ -d "$app_dir" ]; then \
         if [ -f "$app_dir/setup.py" ] || [ -f "$app_dir/pyproject.toml" ]; then \
-            echo "Installing $app_dir in editable mode..."; \
-            ./env/bin/pip install -e "$app_dir"; \
+            # Use absolute path for editable install to avoid relative path issues
+            abs_app_path=$(realpath "$app_dir"); \
+            echo "Installing $abs_app_path in editable mode..."; \
+            ./env/bin/pip install -e "$abs_app_path"; \
         else \
             echo "Skipping $app_dir (no setup.py or pyproject.toml found)"; \
         fi \
     fi \
-done
+done && \
+# Verify apps are importable
+echo "Verifying app installations..." && \
+./env/bin/python -c "import hrms; import helpdesk; print('Verification Successful: hrms and helpdesk are importable')"
