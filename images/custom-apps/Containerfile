@@ -62,7 +62,7 @@ RUN for app_dir in apps/*; do \
     if [ -d "$app_dir" ]; then \
         if [ -f "$app_dir/setup.py" ] || [ -f "$app_dir/pyproject.toml" ]; then \
             echo "Installing $app_dir in editable mode..."; \
-            pip3 install -e "$app_dir"; \
+            ./env/bin/pip install -e "$app_dir"; \
         else \
             echo "Skipping $app_dir (no setup.py or pyproject.toml found)"; \
         fi \
