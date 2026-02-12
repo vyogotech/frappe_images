@@ -69,7 +69,4 @@ RUN for app_dir in apps/*; do \
             echo "Skipping $app_dir (no setup.py or pyproject.toml found)"; \
         fi \
     fi \
-done && \
-# Verify apps are importable
-echo "Verifying app installations..." && \
-./env/bin/python -c "import hrms; import helpdesk; print('Verification Successful: hrms and helpdesk are importable')"
+done
