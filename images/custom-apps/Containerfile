@@ -1,4 +1,3 @@
-
 # --- Stage 1: Builder (Installs tools and apps) ---
 FROM ghcr.io/vyogotech/frappe_base:latest AS builder
 
@@ -17,7 +16,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     # The base image has Node.js 20 installed.
     && npm install -g yarn \
     && rm -rf /var/lib/apt/lists/*
-USER frappe
+USER 1000
 WORKDIR /home/frappe/frappe-bench
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -46,18 +45,18 @@ RUN bench build
 # --- Stage 2: Final Image (Runtime) ---
 FROM ghcr.io/vyogotech/frappe_base:latest
 
-USER frappe
+USER 1000
 WORKDIR /home/frappe/frappe-bench
 
 
 
-COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/apps /home/frappe/frappe-bench/apps
+COPY --from=builder --chown=1000:0 /home/frappe/frappe-bench/apps /home/frappe/frappe-bench/apps
 
-COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
+COPY --from=builder --chown=1000:0 /home/frappe/frappe-bench/sites/assets /home/frappe/assets_cache
 
 # --- Register Apps in Python Environment ---
 # The copied apps/ directory contains valid python packages. We must install them.
-USER frappe
+USER 1000
 RUN for app_dir in apps/*; do \
     if [ -d "$app_dir" ]; then \
         if [ -f "$app_dir/setup.py" ] || [ -f "$app_dir/pyproject.toml" ]; then \

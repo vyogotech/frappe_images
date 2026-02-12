@@ -95,7 +95,7 @@ RUN groupadd -g 1000 frappe \
     && useradd --no-log-init -r -m -u 1000 -g 1000 -G sudo frappe \
     && echo "frappe ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-USER frappe
+USER 1000
 WORKDIR /home/frappe
 
 # Install Python via pyenv

@@ -12,7 +12,7 @@ RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
     mkdir /opt/frappe && echo "${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json; \
   fi
 
-USER frappe
+USER 1000
 
 RUN export APP_INSTALL_ARGS="" && \
   if [ -n "${APPS_JSON_BASE64}" ]; then \
@@ -32,7 +32,7 @@ RUN export APP_INSTALL_ARGS="" && \
 
 FROM frappe/base:${FRAPPE_BRANCH} AS backend
 
-USER frappe
+USER 1000
 
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench /home/frappe/frappe-bench
 
