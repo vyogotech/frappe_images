@@ -8,7 +8,7 @@ on:
 jobs:
   test-cluster-runner:
     # Use the name of the Runner Scale Set deployed via ArgoCD
-    runs-on: arc-runner-set
+    runs-on: vyogotech-org-runner
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
