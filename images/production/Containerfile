@@ -1,4 +1,4 @@
-FROM frappe/erpnext:version-15 AS erpnext
+FROM frappe/erpnext:v15.100.0 AS erpnext
 
 # Switch to root to perform system changes
 USER root
